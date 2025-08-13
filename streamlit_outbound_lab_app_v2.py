@@ -113,7 +113,7 @@ for i in range(10):
 
     use_case_rows.append({
         "Next Best Action": nba,
-        "Hypothesis Type (Market-Led \\ Accounts-Led)": hyp_type,
+        "Hypothesis Type (Market-Led \ Accounts-Led)": hyp_type,
         "Industry": industry,
         "ICP (Personas)": persona,
         "Message Angle": angle,
@@ -134,6 +134,22 @@ for i in range(10):
 
 use_case_df = pd.DataFrame(use_case_rows)
 
+# 1) Next Best Action default + coloring (Section 1)
+use_case_df.loc[use_case_df["Next Best Action"] == "", "Next Best Action"] = "5-Consider to disqualify cadence"
+
+_color_map = {
+    "1-Reveal More Contacts": "background-color: #fff3b0",  # yellow
+    "2-Bring more leads": "background-color: #fff3b0",       # yellow
+    "3-Wait for more engagement": "background-color: #d4edda", # green
+    "4-Consider modify campaign": "background-color: #ffe0b2", # orange
+    "5-Consider to disqualify cadence": "background-color: #ffe0b2", # orange
+}
+
+def color_nba(val: str):
+    return _color_map.get(val, "")
+
+styled_use_case = use_case_df.style.applymap(color_nba, subset=["Next Best Action"])  # pandas Styler
+
 # -------------------------
 # Section 2: Accounts-Led Prospecting
 # -------------------------
@@ -141,21 +157,69 @@ account_rows = []
 for i in range(10):
     base = accounts[i]
     def r(a, b): return random.randint(a, b)
-    account_rows.append({**base,
+    # Generate granular counts
+    m_seo = r(5, 80)
+    m_mgmt = r(5, 60)
+    m_ppc = r(5, 70)
+    m_pr = r(3, 50)
+    m_aff = r(1, 40)
+    s_biz = r(10, 150)
+    cs = r(5, 100)
+    bi = r(3, 80)
+    ecommerce = r(3, 70)
+    invest = r(0, 25)
+    # Sum for Number Of Current Contacts (per spec)
+    total_contacts = m_seo + m_mgmt + m_ppc + m_pr + m_aff + s_biz + cs + bi + ecommerce + invest
+    # New metric: Number of active "Accounts-Led Cadences"
+    active_cadences = r(1, 12)
+
+    account_rows.append({
+        "Industry": base["Industry"],
+        "Sub-Industry": base["Sub-Industry"],
+        "Country": base["Country"],
+        "Account Name": base["Account Name"],
+        "Parent Company Domain": base["Parent Company Domain"],
+        "Website": base["Website"],
+        "Number of active \"Accounts-Led Cadences\"": active_cadences,
+        "Number Of Current Contacts": total_contacts,
         "Number of contacts in active cadences": r(5, 120),
-        "Number Of Current Contacts": r(100, 1200),
-        "Number of Marketing SEO / Content Contacts": r(5, 80),
-        "Number of Marketing: Management / General Contacts": r(5, 60),
-        "Number of Marketing: PPC / Display Contacts": r(5, 70),
-        "Number of Marketing: PR / Comms / Social Media Contacts": r(3, 50),
-        "Number of Marketing: Affiliate / Media Buying Contacts": r(1, 40),
-        "Number of Sales / Business Development Contacts": r(10, 150),
-        "Number of Account Management / Customer Success Contacts": r(5, 100),
-        "Number of BI / Analytics Contacts": r(3, 80),
-        "Number of eCommerce Contacts": r(3, 70),
-        "Number of Investment Contacts": r(0, 25)})
+        "Number of Marketing SEO / Content Contacts": m_seo,
+        "Number of Marketing: Management / General Contacts": m_mgmt,
+        "Number of Marketing: PPC / Display Contacts": m_ppc,
+        "Number of Marketing: PR / Comms / Social Media Contacts": m_pr,
+        "Number of Marketing: Affiliate / Media Buying Contacts": m_aff,
+        "Number of Sales / Business Development Contacts": s_biz,
+        "Number of Account Management / Customer Success Contacts": cs,
+        "Number of BI / Analytics Contacts": bi,
+        "Number of eCommerce Contacts": ecommerce,
+        "Number of Investment Contacts": invest,
+    })
 
 accounts_df = pd.DataFrame(account_rows)
+
+# Ensure exact column order per spec (Section 2)
+accounts_cols_order = [
+    "Industry",
+    "Sub-Industry",
+    "Country",
+    "Account Name",
+    "Parent Company Domain",
+    "Website",
+    "Number of active \"Accounts-Led Cadences\"",
+    "Number Of Current Contacts",
+    "Number of contacts in active cadences",
+    "Number of Marketing SEO / Content Contacts",
+    "Number of Marketing: Management / General Contacts",
+    "Number of Marketing: PPC / Display Contacts",
+    "Number of Marketing: PR / Comms / Social Media Contacts",
+    "Number of Marketing: Affiliate / Media Buying Contacts",
+    "Number of Sales / Business Development Contacts",
+    "Number of Account Management / Customer Success Contacts",
+    "Number of BI / Analytics Contacts",
+    "Number of eCommerce Contacts",
+    "Number of Investment Contacts",
+]
+accounts_df = accounts_df[accounts_cols_order]
 
 # -------------------------
 # Section 3: Intent-Driven List
@@ -163,15 +227,35 @@ accounts_df = pd.DataFrame(account_rows)
 intent_rows = []
 for i in range(10):
     base = accounts[i]
-    intent_corr = round(random.uniform(0.35, 0.95), 2)
     trials_90d = random.randint(0, 20)
     hand_raises_90d = random.randint(0, 15)
-    intent_rows.append({**base,
-        "Intent-Hypothesis Correlation": intent_corr,
+
+    intent_rows.append({
+        "Industry": base["Industry"],
+        "Sub-Industry": base["Sub-Industry"],
+        "Country": base["Country"],
+        "Account Name": base["Account Name"],
+        "Parent Company Domain": base["Parent Company Domain"],
+        "Website": base["Website"],
+        # Placeholder text; will populate below after we have use_case_df
+        "Intent-Hypothesis Correlation": "",
         "Contacts with Active trial last 90 days": trials_90d,
-        "Contacts with Active hand raises last 90 days": hand_raises_90d})
+        "Contacts with Active hand raises last 90 days": hand_raises_90d,
+    })
 
 intent_df = pd.DataFrame(intent_rows)
+
+# Convert Intent-Hypothesis Correlation to randomized text referencing Tab 1 cadences
+cadence_pool = list(use_case_df["Cadence"].unique()) if not use_case_df.empty else ["7-step multi-channel"]
+intent_texts = []
+for _ in range(len(intent_df)):
+    roll = random.random()
+    if roll < 0.35:
+        intent_texts.append("")  # blank sometimes
+    else:
+        picked = random.choice(cadence_pool)
+        intent_texts.append(f"According to our analysis, this domain has intent activity that might be correlated with one of your hypothesis {picked}")
+intent_df["Intent-Hypothesis Correlation"] = intent_texts
 
 # -------------------------
 # UI: Tabs for the three sections
@@ -180,12 +264,52 @@ tab1, tab2, tab3 = st.tabs(["Use-Case Led Prospecting", "Accounts-Led Prospectin
 
 with tab1:
     st.subheader("Section 1: Use-Case Led Prospecting")
-    st.dataframe(use_case_df, use_container_width=True)
+    # Show styled table (colors on Next Best Action). Streamlit supports pandas Styler in st.dataframe.
+    st.dataframe(styled_use_case, use_container_width=True)
+
+    # Row selection & collapsible details panel
+    st.markdown("---")
+    st.markdown("### Explore a row")
+    # Provide a selection control to mimic row-click behavior
+    options = [f"{i+1}: {r['Industry']} — {r['ICP (Personas)']}" for i, r in use_case_df.iterrows()]
+    selected = st.selectbox("Pick a row to view details", ["None"] + options, index=0)
+    if selected != "None":
+        idx = int(selected.split(":", 1)[0]) - 1
+        with st.expander("Selected Row Details", expanded=True):
+            row = use_case_df.iloc[idx]
+            cols_to_show = [
+                "Next Best Action",
+                "Hypothesis Type (Market-Led \ Accounts-Led)", "Industry", "ICP (Personas)", "Message Angle", "Trigger",
+                "Product (Web, Shopper, Investors, Ads)",
+                "Hypothesis User Story (As a XXX in XXX Company, i'd like to XXX, because I need XXX)",
+                "Slides", "Specific Use Case Related Insights", "Cadence",
+                "# of accounts", "# of leads in campaign", "# of engaged leads", "# of leads exausted",
+                "Meeting Rate", "# of opportunities"
+            ]
+            details_df = pd.DataFrame({"Field": cols_to_show, "Value": [row[c] for c in cols_to_show]})
+            st.dataframe(details_df, use_container_width=True, hide_index=True)
+
+            c1, c2, c3 = st.columns([1.6, 1.8, 2.0])
+            if c1.button("Modify This Cadence", key=f"mod_row_{idx}"):
+                st.toast(f"Modify cadence triggered (row {idx+1}).")
+            if c2.button("Reveal More Contacts", key=f"rev_row_{idx}"):
+                st.toast(f"Reveal contacts triggered (row {idx+1}).")
+            if c3.button("Dis-qualify This Cadence", key=f"disq_row_{idx}"):
+                st.toast(f"Dis-qualified cadence (row {idx+1}).")
+
     st.download_button("Download Use-Case Table (CSV)", data=use_case_df.to_csv(index=False).encode("utf-8"), file_name="use_case_led_prospecting.csv", mime="text/csv")
 
 with tab2:
     st.subheader("Section 2: Accounts-Led Prospecting")
     st.dataframe(accounts_df, use_container_width=True)
+
+    # Two buttons under Section 2
+    b1, b2 = st.columns([2, 3])
+    if b1.button("Create Account Based Cadence"):
+        st.toast("Creating an Account-Based Cadence… (stub)")
+    if b2.button("Get list of all accounts based cadences with their accounts"):
+        st.toast("Fetching list of account-based cadences… (stub)")
+
     st.download_button("Download Accounts Table (CSV)", data=accounts_df.to_csv(index=False).encode("utf-8"), file_name="accounts_led_prospecting.csv", mime="text/csv")
 
 with tab3:
