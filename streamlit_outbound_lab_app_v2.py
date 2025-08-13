@@ -9,11 +9,10 @@ st.set_page_config(page_title="Prospecting Workspace", layout="wide")
 st.title("Prospecting Workspace")
 st.caption("Three views: Use-Case Led, Accounts-Led, and Intent-Driven")
 
-# Header-only wrapping (no body wrapping)
+# Global style: wrap only table headers
 st.markdown(
     """
     <style>
-    /* Wrap ONLY headers in st.dataframe / st.table */
     div[data-testid="stDataFrame"] div[role="columnheader"] * { 
         white-space: normal !important; 
         overflow-wrap: anywhere !important; 
@@ -89,34 +88,31 @@ for i in range(10):
     angle = message_angles[i]
     trigger = triggers[i]
     product_choice = random.choice(products)
-    hyp_type = random.choice(["Market-Led", "Accounts-Led"])  # as requested
+    hyp_type = random.choice(["Market-Led", "Accounts-Led"])
 
     user_story = f"As a {persona} in a {industry} company, I'd like to {angle.lower()}, because I need to act on {trigger.lower()} data."
     slides_url = f"https://slides.example.com/{clean_domain(accounts[i]['Parent Company Domain'])}/qbr"
 
-    # Constraints per spec
     n_accounts = random.randint(3, 50)
     n_leads = random.randint(7, 200)
     engaged = max(1, int(n_leads * random.uniform(0.05, 0.80)))
     exhausted = max(0, int(engaged * random.uniform(0.05, 1.00)))
-    meeting_rate = random.uniform(0.01, 0.10)  # 1%-10%
+    meeting_rate = random.uniform(0.01, 0.10)
     n_opps = max(1, int(n_leads * meeting_rate * random.uniform(0.10, 0.40)))
 
-    # Next best action rules (priority a -> b -> c -> d)
     if n_accounts < 10:
         nba = "1-Reveal More Contacts"
     elif n_leads < 30:
         nba = "2-Bring more leads"
     elif engaged < 30:
         nba = "3-Wait for more engagement"
-    elif (exhausted / max(1, n_leads)) > 0.70 and n_opps < 2:
+    elif (exhausted / n_leads) > 0.7 and n_opps < 2:
         nba = "4-Consider modify campaign"
     else:
-        nba = "5-Consider disqualify cadence"
+        nba = ""
 
     use_case_rows.append({
-        # NOTE: no action controls inside table per latest request
-        "Select": f'<a href="?row={i}">Open</a>',
+        "Next Best Action": nba,
         "Hypothesis Type (Market-Led \\ Accounts-Led)": hyp_type,
         "Industry": industry,
         "ICP (Personas)": persona,
@@ -134,7 +130,6 @@ for i in range(10):
         "# of leads exausted": exhausted,
         "Meeting Rate": f"{round(meeting_rate*100, 1)}%",
         "# of opportunities": n_opps,
-        "next best action": nba,
     })
 
 use_case_df = pd.DataFrame(use_case_rows)
@@ -179,61 +174,13 @@ for i in range(10):
 intent_df = pd.DataFrame(intent_rows)
 
 # -------------------------
-# Read selection from query params (Section 1)
-# -------------------------
-qp = st.query_params
-row_str = qp.get("row", None)
-selected_row_idx = None
-if row_str is not None:
-    try:
-        val = int(row_str)
-        if 0 <= val < len(use_case_df):
-            selected_row_idx = val
-    except Exception:
-        selected_row_idx = None
-
-# -------------------------
 # UI: Tabs for the three sections
 # -------------------------
 tab1, tab2, tab3 = st.tabs(["Use-Case Led Prospecting", "Accounts-Led Prospecting", "Intent-Driven List"])
 
 with tab1:
     st.subheader("Section 1: Use-Case Led Prospecting")
-    # Render as HTML to allow clickable row selection via the "Select" column
-    st.markdown(use_case_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-    # Details panel below the table when a row is picked
-    st.markdown("---")
-    st.markdown("### Selected Row Details")
-    if selected_row_idx is None:
-        st.info("Pick a row using the **Select → Open** link in the table.")
-    else:
-        row = use_case_df.iloc[selected_row_idx]
-        # Show a tidy key-value view
-        cols_to_show = [
-            "Hypothesis Type (Market-Led \\ Accounts-Led)", "Industry", "ICP (Personas)", "Message Angle", "Trigger",
-            "Product (Web, Shopper, Investors, Ads)",
-            "Hypothesis User Story (As a XXX in XXX Company, i'd like to XXX, because I need XXX)",
-            "Slides", "Specific Use Case Related Insights", "Cadence",
-            "# of accounts", "# of leads in campaign", "# of engaged leads", "# of leads exausted",
-            "Meeting Rate", "# of opportunities", "next best action"
-        ]
-        details_df = pd.DataFrame({"Field": cols_to_show, "Value": [row[c] for c in cols_to_show]})
-        st.dataframe(details_df, use_container_width=True, hide_index=True)
-
-        # Action buttons appear BELOW after selection
-        c1, c2, c3, c4 = st.columns([1.6, 1.8, 2.0, 5])
-        if c1.button("Modify This Cadence", key=f"mod_row_{selected_row_idx}"):
-            st.toast(f"Modify cadence triggered (row {selected_row_idx+1}).")
-        if c2.button("Reveal More Contacts", key=f"rev_row_{selected_row_idx}"):
-            st.toast(f"Reveal contacts triggered (row {selected_row_idx+1}).")
-        if c3.button("Dis-qualify This Cadence", key=f"disq_row_{selected_row_idx}"):
-            st.toast(f"Dis-qualified cadence (row {selected_row_idx+1}).")
-        with c4:
-            if st.button("Clear selection"):
-                st.query_params.clear()
-                st.rerun()
-
+    st.dataframe(use_case_df, use_container_width=True)
     st.download_button("Download Use-Case Table (CSV)", data=use_case_df.to_csv(index=False).encode("utf-8"), file_name="use_case_led_prospecting.csv", mime="text/csv")
 
 with tab2:
