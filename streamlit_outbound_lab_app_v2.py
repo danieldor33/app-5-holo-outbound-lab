@@ -311,12 +311,30 @@ with tab1:
     st.markdown("---")
     st.markdown("### Selected Row Details")
     sel = grid_response.get("selected_rows", [])
-    if not sel:
+
+    # Handle both legacy and current st_aggrid return types
+    if isinstance(sel, pd.DataFrame):
+        has_selection = not sel.empty
+        rows = sel.to_dict(orient="records")
+    elif isinstance(sel, list):
+        has_selection = len(sel) > 0
+        rows = sel
+    else:
+        # Fallback: try to coerce to list of dicts
+        try:
+            rows = list(sel)  # may still be [] or list-like
+            has_selection = len(rows) > 0
+        except Exception:
+            rows = []
+            has_selection = False
+    
+    if not has_selection:
         st.info("Select a row in the table (checkbox) to view details and actions.")
     else:
-        # AgGrid returns a list of dicts representing the selected row(s)
-        row_dict = sel[0]
+        row_dict = rows[0]
         row = pd.Series(row_dict)
+    
+
         cols_to_show = [
             "Next Best Action",
             "Hypothesis Type (Market-Led \\ Accounts-Led)", "Industry", "ICP (Personas)", "Message Angle", "Trigger",
