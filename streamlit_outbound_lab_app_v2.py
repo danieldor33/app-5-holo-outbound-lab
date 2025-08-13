@@ -87,7 +87,7 @@ accounts = [{
 } for i in range(10)]
 
 # -------------------------
-# Section 1: Use-Case Led Prospecting
+# Section 1: Hypothesis Led Prospecting
 # -------------------------
 use_case_rows = []
 for i in range(10):
@@ -262,7 +262,7 @@ accounts_cols_order = [
 accounts_df = accounts_df[accounts_cols_order]
 
 # -------------------------
-# Section 3: Intent-Driven List
+# Section 3: Intent-Driven Prospecting
 # -------------------------
 intent_rows = []
 for i in range(10):
@@ -300,10 +300,10 @@ intent_df["Intent-Hypothesis Correlation"] = intent_texts
 # -------------------------
 # UI: Tabs for the three sections
 # -------------------------
-tab1, tab2, tab3 = st.tabs(["Use-Case Led Prospecting", "Accounts-Led Prospecting", "Intent-Driven List"])
+tab1, tab2, tab3 = st.tabs(["Hypothesis-Led Prospecting", "Accounts-Led Prospecting", "Intent-Driven Prospecting"])
 
 with tab1:
-    st.subheader("Section 1: Use-Case Led Prospecting")
+    st.subheader("Section 1: Hypothesis-Led Prospecting")
 
     grid_response = AgGrid(
         use_case_df,
@@ -384,7 +384,7 @@ with tab2:
     st.download_button("Download Accounts Table (CSV)", data=accounts_df.to_csv(index=False).encode("utf-8"), file_name="accounts_led_prospecting.csv", mime="text/csv")
 
 with tab3:
-    st.subheader("Section 3: Intent-Driven List")
+    st.subheader("Section 3: Intent-Driven Prospecting")
     st.dataframe(intent_df, use_container_width=True)
     st.download_button("Download Intent List (CSV)", data=intent_df.to_csv(index=False).encode("utf-8"), file_name="intent_driven_list.csv", mime="text/csv")
 
