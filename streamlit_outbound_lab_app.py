@@ -506,9 +506,208 @@ def section_accounts():
 
 
 # -----------------------------
+# Overview (Summary Table + Drilldown)
+# -----------------------------
+
+def _classify_department(title: Optional[str]) -> Optional[str]:
+    if not title:
+        return None
+    t = title.lower()
+    if "seo" in t:
+        return "Mrktg: SEO"
+    if any(k in t for k in ["vp", "head", "director", "manager"]):
+        return "Mrktg: Management"
+    if "marketing" in t:
+        return "Mrktg: General"
+    return None
+
+
+def section_overview():
+    st.header("Campaign Overview")
+
+    options = list_campaign_options()
+    if not options:
+        st.info("No campaigns yet. Create one in the Campaigns page.")
+        return
+
+    labels = [o[0] for o in options]
+    ids = {o[0]: o[1] for o in options}
+    sel_label = st.selectbox("Select a campaign", labels, key="ov_sel_campaign")
+    sel_id = ids[sel_label]
+
+    with get_session() as db:
+        campaign = db.query(Campaign).get(sel_id)
+        cadence = db.query(Cadence).filter_by(campaign_id=campaign.id).first()
+        docs = db.query(Document).filter_by(campaign_id=campaign.id).all()
+
+        contacts = []
+        if cadence:
+            contacts = db.query(Contact).filter_by(cadence_id=cadence.id).all()
+        contact_ids = [c.id for c in contacts]
+
+        # Accounts & Signals
+        account_ids = [c.account_id for c in contacts if c.account_id]
+        accounts = []
+        signals = []
+        if account_ids:
+            accounts = db.query(Account).filter(Account.id.in_(account_ids)).all()
+            signals = db.query(AccountSignal).filter(AccountSignal.account_id.in_(account_ids)).all()
+
+        # Opportunities & Activities
+        opps = []
+        acts = []
+        if contact_ids:
+            opps = db.query(Opportunity).filter(Opportunity.contact_id.in_(contact_ids)).all()
+            acts = db.query(Activity).filter(Activity.contact_id.in_(contact_ids)).all()
+
+    # Derived metrics
+    pptx_count = sum(1 for d in docs if d.file_path.lower().endswith(".pptx"))
+    has_pptx = "v" if pptx_count > 0 else ""
+    has_cadence = "v" if cadence else ""
+
+    dept_labels = []
+    dept_counts = {"Mrktg: SEO": 0, "Mrktg: Management": 0}
+    for c in contacts:
+        dep = _classify_department(c.title)
+        if dep:
+            if dep not in dept_labels:
+                dept_labels.append(dep)
+            if dep in dept_counts:
+                dept_counts[dep] += 1
+
+    engaged_leads = len({a.contact_id for a in acts}) if acts else 0
+    exhausted_leads = len([c for c in contacts if c.status == "paused"]) if contacts else 0
+
+    reply_rate = 0  # Placeholder until a reply signal is defined in Activity schema
+    meeting_rate = 0  # Placeholder until meetings are tracked explicitly
+
+    summary_rows = [
+        {"Object": "Campaign", "Field": "Hypothesis Type", "Example": campaign.hypothesis_type or "—"},
+        {"Object": "Campaign", "Field": "Industry", "Example": campaign.industry or "—"},
+        {"Object": "Campaign", "Field": "ICP (Personas)", "Example": campaign.icp_personas or "—"},
+        {"Object": "Campaign", "Field": "Message Angle", "Example": campaign.message_angle or "—"},
+        {"Object": "Campaign", "Field": "Trigger", "Example": campaign.trigger or "—"},
+        {"Object": "Campaign", "Field": "Product", "Example": campaign.product or "—"},
+        {"Object": "Campaign", "Field": "Hypothesis User Story", "Example": campaign.hypothesis_user_story or "—"},
+        {"Object": "Documents", "Field": "PPTX", "Example": has_pptx},
+        {"Object": "Cadence", "Field": "Cadence", "Example": has_cadence},
+        {"Object": "Accounts", "Field": "# of accounts", "Example": str(len(set(account_ids)))},
+        {"Object": "Leads", "Field": "# of leads in campaign", "Example": str(len(contacts))},
+        {"Object": "Leads", "Field": "Departments Types", "Example": " | ".join(dept_labels) if dept_labels else "—"},
+        {"Object": "Leads", "Field": "Number of leads from Mrktg\SEO", "Example": str(dept_counts.get("Mrktg: SEO", 0))},
+        {"Object": "Leads", "Field": "Number of leads from Mrktg\Management", "Example": str(dept_counts.get("Mrktg: Management", 0))},
+        {"Object": "Activities", "Field": "# of engaged leads", "Example": str(engaged_leads)},
+        {"Object": "Activities", "Field": "# of leads exausted", "Example": str(exhausted_leads)},
+        {"Object": "Activities", "Field": "Reply Rate", "Example": str(reply_rate)},
+        {"Object": "Activities", "Field": "Meeting Rate", "Example": str(meeting_rate)},
+        {"Object": "Signals", "Field": "# of signals", "Example": str(len(signals))},
+        {"Object": "Opportunities", "Field": "# of opportunities", "Example": str(len(opps))},
+    ]
+
+    df = pd.DataFrame(summary_rows)
+
+    st.markdown("### Summary Table")
+    st.dataframe(df, use_container_width=True)
+
+    # Row picker
+    st.markdown("#### Pick a line to drill down")
+    row_labels = [f"{r['Object']} | {r['Field']}" for r in summary_rows]
+    picked = st.selectbox("Line", row_labels, key="summary_pick")
+
+    st.divider()
+    st.subheader("Details")
+
+    # Sections: Campaign, Cadence, Activities, Leads, Documents, Opportunities
+    with st.container(border=True):
+        st.markdown("#### Campaign")
+        meta_cols = st.columns(4)
+        meta_cols[0].metric("Hypothesis Type", campaign.hypothesis_type or "—")
+        meta_cols[1].metric("Industry", campaign.industry or "—")
+        meta_cols[2].metric("ICP (Personas)", campaign.icp_personas or "—")
+        meta_cols[3].metric("Product", campaign.product or "—")
+        st.write("**Message Angle:** ", campaign.message_angle or "—")
+        st.write("**Trigger:** ", campaign.trigger or "—")
+        st.write("**Hypothesis User Story:**")
+        st.code(campaign.hypothesis_user_story or "—")
+
+    with st.container(border=True):
+        st.markdown("#### Cadence")
+        if cadence:
+            st.success(f"Cadence: **{cadence.name}**")
+            st.caption(cadence.description or "")
+        else:
+            st.info("No cadence yet for this campaign.")
+
+    with st.container(border=True):
+        st.markdown("#### Activities")
+        st.metric("Engaged Leads", engaged_leads)
+        st.metric("Leads Exhausted", exhausted_leads)
+        st.metric("Reply Rate", reply_rate)
+        st.metric("Meeting Rate", meeting_rate)
+
+    with st.container(border=True):
+        st.markdown("#### Leads")
+        if contacts:
+            ct_df = pd.DataFrame([
+                {
+                    "id": c.id,
+                    "name": f"{c.first_name or ''} {c.last_name or ''}".strip(),
+                    "email": c.email,
+                    "title": c.title,
+                    "status": c.status,
+                    "account": (c.account.name if c.account else None),
+                    "opportunities": len(c.opportunities),
+                }
+                for c in contacts
+            ])
+            st.dataframe(ct_df, use_container_width=True)
+        else:
+            st.info("No leads (contacts) yet.")
+
+    with st.container(border=True):
+        st.markdown("#### Documents")
+        if docs:
+            for doc in docs:
+                c1, c2, c3 = st.columns([4, 3, 2])
+                c1.write(f"📄 **{doc.name}**")
+                c2.write(doc.uploaded_at.strftime("%Y-%m-%d %H:%M"))
+                if os.path.exists(doc.file_path):
+                    c3.download_button("Download", data=open(doc.file_path, "rb").read(), file_name=os.path.basename(doc.file_path), key=f"dl_{doc.id}")
+                else:
+                    c3.write("File missing")
+        else:
+            st.info("No documents yet.")
+
+    with st.container(border=True):
+        st.markdown("#### Opportunities")
+        if opps:
+            opp_rows = []
+            for o in opps:
+                contact = o.contact
+                account = contact.account.name if contact and contact.account else None
+                cadence_name = contact.cadence.name if contact and contact.cadence else None
+                opp_rows.append(
+                    {
+                        "id": o.id,
+                        "stage": o.stage,
+                        "amount": o.amount,
+                        "created": o.created_at.strftime("%Y-%m-%d %H:%M"),
+                        "contact": f"{contact.first_name or ''} {contact.last_name or ''}".strip() if contact else None,
+                        "email": contact.email if contact else None,
+                        "account": account,
+                        "cadence": cadence_name,
+                    }
+                )
+            st.dataframe(pd.DataFrame(opp_rows), use_container_width=True)
+        else:
+            st.info("No opportunities yet.")
+
+
+# -----------------------------
 # App Nav
 # -----------------------------
 PAGES = {
+    "Overview": section_overview,
     "Campaigns": section_campaigns,
     "Opportunities": section_opportunities,
     "Accounts": section_accounts,
@@ -517,11 +716,12 @@ PAGES = {
 with st.sidebar:
     st.title("Outbound Hypothesis Lab")
     st.caption("Test more campaigns, faster.")
-    page = st.radio("Navigation", list(PAGES.keys()))
+    page = st.radio("Navigation", list(PAGES.keys()), index=0)
     st.divider()
     st.write("**Quick Tips**")
-    st.markdown("1. Create a Campaign → Add Cadence → Upload Contacts → Convert to Opportunities.")
-    st.markdown("2. Use CSV headers: `email, first_name, last_name, title, account_name, account_industry, account_website`.")
+    st.markdown("1. Start with Overview → pick a line to drill down.")
+    st.markdown("2. Or create a Campaign, add a Cadence, upload Contacts, then convert to Opportunities.")
+    st.markdown("3. CSV headers: `email, first_name, last_name, title, account_name, account_industry, account_website`.")
 
 # Render selected page
 PAGES[page]()
