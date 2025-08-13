@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import random
-from itertools import product
 
 # -------------------------
 # Page Configuration
@@ -9,6 +8,26 @@ from itertools import product
 st.set_page_config(page_title="Prospecting Workspace", layout="wide")
 st.title("Prospecting Workspace")
 st.caption("Three views: Use-Case Led, Accounts-Led, and Intent-Driven")
+
+# Global style: wrap table headers across ALL tables
+st.markdown(
+    """
+    <style>
+    /* Try multiple selectors to be robust across Streamlit versions */
+    div[data-testid="stDataFrame"] div[role="columnheader"] * { 
+        white-space: normal !important; 
+        overflow-wrap: anywhere !important; 
+        text-overflow: clip !important;
+    }
+    [data-testid="stTable"] th { 
+        white-space: normal !important; 
+        overflow-wrap: anywhere !important; 
+        text-overflow: clip !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # For reproducibility
 SEED = 42
@@ -136,21 +155,20 @@ for i in range(10):
     trigger = triggers[i]
     product_choice = random.choice(products)
     hyp_type = random.choice(["Market-Led", "Accounts-Led"])  # as requested
-    acct_name = accounts[i]["Account Name"]
+
     user_story = (
         f"As a {persona} in a {industry} company, I'd like to {angle.lower()}, "
         f"because I need to act on {trigger.lower()} data."
     )
     slides_url = f"https://slides.example.com/{clean_domain(accounts[i]['Parent Company Domain'])}/qbr"
 
-    # Synthetic KPIs
-    n_accounts = random.randint(25, 200)
-    n_leads = random.randint(200, 2000)
-    engaged = int(n_leads * random.uniform(0.12, 0.45))
-    exhausted = int(n_leads * random.uniform(0.10, 0.30))
-    meeting_rate = round(random.uniform(0.06, 0.25), 3)
-    n_signals = random.randint(20, 350)
-    n_opps = max(1, int(engaged * meeting_rate * random.uniform(0.2, 0.6)))
+    # ---- Synthetic KPIs with requested constraints ----
+    n_accounts = random.randint(3, 50)
+    n_leads = random.randint(7, 200)
+    engaged = max(1, int(n_leads * random.uniform(0.05, 0.80)))
+    exhausted = max(0, int(engaged * random.uniform(0.05, 1.00)))
+    meeting_rate = random.uniform(0.01, 0.10)  # 1% - 10%
+    n_opps = max(1, int(n_leads * meeting_rate * random.uniform(0.10, 0.40)))
 
     use_case_rows.append({
         "Hypothesis Type (Market-Led \\ Accounts-Led)": hyp_type,
@@ -169,7 +187,6 @@ for i in range(10):
         "# of engaged leads": engaged,
         "# of leads exausted": exhausted,
         "Meeting Rate": f"{round(meeting_rate*100, 1)}%",
-        "# of signals": n_signals,
         "# of opportunities": n_opps,
     })
 
@@ -234,6 +251,20 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.subheader("Section 1: Use-Case Led Prospecting")
     st.dataframe(use_case_df, use_container_width=True)
+
+    # Row-level actions (placed below the table for Streamlit compatibility)
+    st.markdown("**Row Actions** – quick controls for each hypothesis/cadence:")
+    for idx, row in use_case_df.reset_index().iterrows():
+        with st.container():
+            c1, c2, c3, c4 = st.columns([4, 2.2, 2.6, 2.8])
+            c1.write(f"**{row['Industry']} — {row['ICP (Personas)']}**")
+            if c2.button("Modify This Cadence", key=f"mod_{idx}"):
+                st.toast(f"Modify cadence triggered for row {idx+1} ({row['Industry']} / {row['ICP (Personas)']}).")
+            if c3.button("Reveal More Contacts", key=f"rev_{idx}"):
+                st.toast(f"Reveal contacts triggered for row {idx+1}.")
+            if c4.button("Dis-qualify This Cadence", key=f"disq_{idx}"):
+                st.toast(f"Dis-qualified cadence for row {idx+1}.")
+
     st.download_button(
         label="Download Use-Case Table (CSV)",
         data=use_case_df.to_csv(index=False).encode("utf-8"),
@@ -268,16 +299,21 @@ st.sidebar.header("Quick Filters")
 selected_industry = st.sidebar.selectbox("Industry", ["All"] + industries)
 selected_country = st.sidebar.selectbox("Country", ["All"] + countries)
 
+# Copy dataframes for filtering in sidebar metrics
+_uc_df = use_case_df.copy()
+_ac_df = accounts_df.copy()
+_in_df = intent_df.copy()
+
 if selected_industry != "All":
-    use_case_df = use_case_df[use_case_df["Industry"] == selected_industry]
-    accounts_df = accounts_df[accounts_df["Industry"] == selected_industry]
-    intent_df = intent_df[intent_df["Industry"] == selected_industry]
+    _uc_df = _uc_df[_uc_df["Industry"] == selected_industry]
+    _ac_df = _ac_df[_ac_df["Industry"] == selected_industry]
+    _in_df = _in_df[_in_df["Industry"] == selected_industry]
 
 if selected_country != "All":
-    accounts_df = accounts_df[accounts_df["Country"] == selected_country]
-    intent_df = intent_df[intent_df["Country"] == selected_country]
+    _ac_df = _ac_df[_ac_df["Country"] == selected_country]
+    _in_df = _in_df[_in_df["Country"] == selected_country]
 
 # Show filtered counts in sidebar
-st.sidebar.metric("Use-Case rows", len(use_case_df))
-st.sidebar.metric("Accounts rows", len(accounts_df))
-st.sidebar.metric("Intent rows", len(intent_df))
+st.sidebar.metric("Use-Case rows", len(_uc_df))
+st.sidebar.metric("Accounts rows", len(_ac_df))
+st.sidebar.metric("Intent rows", len(_in_df))
