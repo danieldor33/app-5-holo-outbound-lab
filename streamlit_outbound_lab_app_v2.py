@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 # -------------------------
 # Page Configuration
@@ -150,6 +151,38 @@ def color_nba(val: str):
 
 styled_use_case = use_case_df.style.applymap(color_nba, subset=["Next Best Action"])  # pandas Styler
 
+# --- AgGrid configuration for Section 1 (clickable rows) ---
+cell_style_js = JsCode(
+    """
+    function(params) {
+      const v = params.value;
+      if (v === '1-Reveal More Contacts' || v === '2-Bring more leads') { return { backgroundColor: '#fff3b0' }; }
+      if (v === '3-Wait for more engagement') { return { backgroundColor: '#d4edda' }; }
+      if (v === '4-Consider modify campaign') { return { backgroundColor: '#ffe0b2' }; }
+      if (v === '5-Consider to disqualify cadence') { return { backgroundColor: '#ffe0b2' }; }
+      return null;
+    }
+    """
+)
+
+gb = GridOptionsBuilder.from_dataframe(use_case_df)
+# Make columns flexible and enable filtering/sorting
+gb.configure_default_column(resizable=True, sortable=True, filter=True)
+# Apply header wrapping via grid options
+gb.configure_grid_options(
+    defaultColDef={
+        'wrapHeaderText': True,
+        'autoHeaderHeight': True,
+    }
+)
+# Single row selection on click
+gb.configure_selection(selection_mode='single', use_checkbox=True)
+# Color the Next Best Action column similar to pandas styler
+if "Next Best Action" in use_case_df.columns:
+    gb.configure_column("Next Best Action", cellStyle=cell_style_js)
+
+grid_options = gb.build()
+
 # -------------------------
 # Section 2: Accounts-Led Prospecting
 # -------------------------
@@ -264,40 +297,53 @@ tab1, tab2, tab3 = st.tabs(["Use-Case Led Prospecting", "Accounts-Led Prospectin
 
 with tab1:
     st.subheader("Section 1: Use-Case Led Prospecting")
-    # Show styled table (colors on Next Best Action). Streamlit supports pandas Styler in st.dataframe.
-    st.dataframe(styled_use_case, use_container_width=True)
 
-    # Row selection & collapsible details panel
+    grid_response = AgGrid(
+        use_case_df,
+        gridOptions=grid_options,
+        height=360,
+        theme="balham",
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
+        reload_data=False,
+    )
+
     st.markdown("---")
-    st.markdown("### Explore a row")
-    # Provide a selection control to mimic row-click behavior
-    options = [f"{i+1}: {r['Industry']} — {r['ICP (Personas)']}" for i, r in use_case_df.iterrows()]
-    selected = st.selectbox("Pick a row to view details", ["None"] + options, index=0)
-    if selected != "None":
-        idx = int(selected.split(":", 1)[0]) - 1
-        with st.expander("Selected Row Details", expanded=True):
-            row = use_case_df.iloc[idx]
-            cols_to_show = [
-                "Next Best Action",
-                "Hypothesis Type (Market-Led \ Accounts-Led)", "Industry", "ICP (Personas)", "Message Angle", "Trigger",
-                "Product (Web, Shopper, Investors, Ads)",
-                "Hypothesis User Story (As a XXX in XXX Company, i'd like to XXX, because I need XXX)",
-                "Slides", "Specific Use Case Related Insights", "Cadence",
-                "# of accounts", "# of leads in campaign", "# of engaged leads", "# of leads exausted",
-                "Meeting Rate", "# of opportunities"
-            ]
-            details_df = pd.DataFrame({"Field": cols_to_show, "Value": [row[c] for c in cols_to_show]})
-            st.dataframe(details_df, use_container_width=True, hide_index=True)
+    st.markdown("### Selected Row Details")
+    sel = grid_response.get("selected_rows", [])
+    if not sel:
+        st.info("Select a row in the table (checkbox) to view details and actions.")
+    else:
+        # AgGrid returns a list of dicts representing the selected row(s)
+        row_dict = sel[0]
+        row = pd.Series(row_dict)
+        cols_to_show = [
+            "Next Best Action",
+            "Hypothesis Type (Market-Led \\ Accounts-Led)", "Industry", "ICP (Personas)", "Message Angle", "Trigger",
+            "Product (Web, Shopper, Investors, Ads)",
+            "Hypothesis User Story (As a XXX in XXX Company, i'd like to XXX, because I need XXX)",
+            "Slides", "Specific Use Case Related Insights", "Cadence",
+            "# of accounts", "# of leads in campaign", "# of engaged leads", "# of leads exausted",
+            "Meeting Rate", "# of opportunities"
+        ]
+        present_cols = [c for c in cols_to_show if c in row.index]
+        details_df = pd.DataFrame({"Field": present_cols, "Value": [row[c] for c in present_cols]})
+        st.dataframe(details_df, use_container_width=True, hide_index=True)
 
-            c1, c2, c3 = st.columns([1.6, 1.8, 2.0])
-            if c1.button("Modify This Cadence", key=f"mod_row_{idx}"):
-                st.toast(f"Modify cadence triggered (row {idx+1}).")
-            if c2.button("Reveal More Contacts", key=f"rev_row_{idx}"):
-                st.toast(f"Reveal contacts triggered (row {idx+1}).")
-            if c3.button("Dis-qualify This Cadence", key=f"disq_row_{idx}"):
-                st.toast(f"Dis-qualified cadence (row {idx+1}).")
+        c1, c2, c3 = st.columns([1.6, 1.8, 2.0])
+        if c1.button("Modify This Cadence"):
+            st.toast("Modify cadence triggered.")
+        if c2.button("Reveal More Contacts"):
+            st.toast("Reveal contacts triggered.")
+        if c3.button("Dis-qualify This Cadence"):
+            st.toast("Dis-qualified cadence.")
 
-    st.download_button("Download Use-Case Table (CSV)", data=use_case_df.to_csv(index=False).encode("utf-8"), file_name="use_case_led_prospecting.csv", mime="text/csv")
+    st.download_button(
+        "Download Use-Case Table (CSV)",
+        data=use_case_df.to_csv(index=False).encode("utf-8"),
+        file_name="use_case_led_prospecting.csv",
+        mime="text/csv",
+    )
 
 with tab2:
     st.subheader("Section 2: Accounts-Led Prospecting")
