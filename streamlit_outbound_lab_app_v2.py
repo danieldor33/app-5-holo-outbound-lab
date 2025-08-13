@@ -7,7 +7,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 # Page Configuration
 # -------------------------
 st.set_page_config(page_title="HOLOO 1.0 - HypOthesis Led Outbound Optimizer", layout="wide")
-st.title(HOLOO 1.0 - HypOthesis Led Outbound Optimizer")
+st.title("HOLOO 1.0 - HypOthesis Led Outbound Optimizer")
 st.caption("Three Courses of Action: (1) Red Lane – Review and optimize your active hypotheses and cadences. Refine what’s working, adjust what’s not, and create new ones to test. (2) Orange Lane – Audit your accounts and contacts. Identify opportunities to develop account-led hypotheses and corresponding cadences. (3) Green Lane – Monitor intent-driven events and engage promptly to capitalize on these signals.")
 
 # Global style: wrap only table headers
