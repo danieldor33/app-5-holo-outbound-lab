@@ -356,11 +356,11 @@ with tab1:
         st.dataframe(details_df, use_container_width=True, hide_index=True)
 
         c1, c2, c3 = st.columns([1.6, 1.8, 2.0])
-        if c1.button("Modify This Cadence"):
+        if c1.button("Modify This Cadence In Salesloft"):
             st.toast("Modify cadence triggered.")
-        if c2.button("Reveal More Contacts"):
+        if c2.button("Reveal More Contacts In Sales Intelligence And Upload To Salesforce"):
             st.toast("Reveal contacts triggered.")
-        if c3.button("Dis-qualify This Cadence"):
+        if c3.button("Dis-qualify This Cadence In Salesforce & Salesloft"):
             st.toast("Dis-qualified cadence.")
 
     st.download_button(
