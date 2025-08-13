@@ -376,7 +376,7 @@ with tab2:
 
     # Two buttons under Section 2
     b1, b2 = st.columns([2, 3])
-    if b1.button("Create Account Based Cadence"):
+    if b1.button("Create Account Based Cadence In Salesloft"):
         st.toast("Creating an Account-Based Cadence… (stub)")
     if b2.button("Get list of all accounts based cadences with their accounts"):
         st.toast("Fetching list of account-based cadences… (stub)")
