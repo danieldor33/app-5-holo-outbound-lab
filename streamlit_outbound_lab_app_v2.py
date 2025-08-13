@@ -171,7 +171,7 @@ for i in range(10):
     n_opps = max(1, int(n_leads * meeting_rate * random.uniform(0.10, 0.40)))
 
     use_case_rows.append({
-        "Hypothesis Type (Market-Led \\ Accounts-Led)": hyp_type,
+        "Hypothesis Type (Market-Led \ Accounts-Led)": hyp_type,
         "Industry": industry,
         "ICP (Personas)": persona,
         "Message Angle": angle,
