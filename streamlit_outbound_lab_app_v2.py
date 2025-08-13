@@ -6,7 +6,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 # -------------------------
 # Page Configuration
 # -------------------------
-st.set_page_config(page_title="Prospecting Workspace", layout="wide")
+st.set_page_config(page_title="HOLOO 1.0 - HypOthesis Led Outbound Optimizer", layout="wide")
 st.title("Prospecting Workspace")
 st.caption("Three views: Use-Case Led, Accounts-Led, and Intent-Driven")
 
