@@ -200,7 +200,7 @@ tab1, tab2, tab3 = st.tabs(["Use-Case Led Prospecting", "Accounts-Led Prospectin
 with tab1:
     st.subheader("Section 1: Use-Case Led Prospecting")
     # Render as HTML to allow clickable row selection via the "Select" column
-    st.markdown(use_case_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+    st.markdown(use_case_df.use_container_width=True)
 
     # Details panel below the table when a row is picked
     st.markdown("---")
